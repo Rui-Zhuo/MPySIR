@@ -310,7 +310,8 @@ pprint('==> Ready to start! ..... {0:2.3f} s'.format(time.time() - start_time))
 
 
 # We execute SIR in the following way:
-sirfile = './'+sirfile
+# sirfile = './'+sirfile # Edited by Rui, 2025/11/05
+sirfile = '/mnt/e/Research/Program/StokesSynthesis/MPySIR/invDefault/sir.x' # Edited by Rui, 2025/11/05
 
 if sirmode != 'synthesis':
     totalPixel = myPart.shape[0]
@@ -417,7 +418,66 @@ for currentPixel in range(0,totalPixel):
 
 
     # +++++++++ Run SIR +++++++++
-    sirutils.sirexe(comm, sirfile, resultadoSir, sirmode, chi2map, x)
+    # sirutils.sirexe(comm, sirfile, resultadoSir, sirmode, chi2map, x) # Edited by Rui, 2025/11/06
+    
+    # ''' Edited by Rui, 2025/11/06 [begins]'''
+    # sir_log = 'sir_execution.log'
+    # with open(sir_log, 'w') as f:
+    #     result = sirutils.sirexe(comm, sirfile, resultadoSir, sirmode, chi2map, x)
+    #     f.write(f'SIR execution return: {result}\n')
+        
+    # +++++++++ Run SIR +++++++++
+    import subprocess
+    import os
+
+    # 1. 验证 invDefault 目录下的关键文件是否存在（SIR 必须依赖这些文件）
+    required_files = [
+        os.path.join(os.path.dirname(sirfile), "sir.trol"),
+        os.path.join(os.path.dirname(sirfile), "Lines_LTE"),
+        os.path.join(os.path.dirname(sirfile), "ASPLUND")
+    ]
+
+    # 检查文件是否存在
+    missing_files = [f for f in required_files if not os.path.exists(f)]
+    if missing_files:
+        print(f"[ERROR] 缺少 SIR 必需文件：{missing_files}")
+    else:
+        print("[INFO] 所有必需文件都存在，开始运行 SIR...")
+
+    # 2. 直接在 invDefault 目录下运行 sir.x，强制捕获输出
+    sir_log = "sir_execution.log"
+    inv_default_dir = os.path.dirname(sirfile)  # invDefault 目录路径
+
+    # 切换到 invDefault 目录，执行 sir.x（SIR 需在此目录读取输入文件）
+    os.chdir(inv_default_dir)
+
+    # 运行 sir.x 并写入日志
+    with open("../" + sir_log, "w") as f:  # 日志保存到 MPySIR 根目录
+        # 用最基础的 subprocess 调用，确保执行
+        result = subprocess.run(
+            ["./sir.x"],  # 直接调用当前目录下的 sir.x
+            stdout=f,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=30  # 超时30秒，避免卡住
+        )
+
+    # 切回 MPySIR 根目录
+    os.chdir("..")
+
+    # 打印执行结果
+    print(f"[INFO] SIR 执行完成，返回码：{result.returncode}")
+    print(f"[INFO] 日志文件已保存到：{sir_log}")
+
+    # 3. 检查是否生成了合成谱文件（SIR 正演的核心输出）
+    synth_files = [f for f in os.listdir(inv_default_dir) if f.endswith(".syn") or f.endswith(".out")]
+    if synth_files:
+        print(f"[INFO] 找到 SIR 输出文件：{synth_files}")
+    else:
+        print("[ERROR] SIR 未生成任何输出文件，详情见日志")
+    
+    ''' Edited by Rui, 2025/11/06 [ends]'''
+    
 
     if test1pixel:
         sirutils.plotper()  # Plots the profiles if we are testing 1 pixel
