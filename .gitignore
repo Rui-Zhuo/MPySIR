@@ -207,3 +207,5 @@ invDefault/sir.trol
 invDefault/sir.x
 *.ipynb
 *node*
+/SIRcode
+/SIRenv/bin
